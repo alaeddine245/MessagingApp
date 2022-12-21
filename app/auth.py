@@ -1,9 +1,30 @@
-from flask import Blueprint , request, jsonify
+from flask import Blueprint , request, jsonify, session, make_response
+import jwt
+from datetime import datetime, timedelta
+from functools import wraps
 from .models import User
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, EmailField, IntegerField
 from wtforms.validators import InputRequired, Length
+secret_key = "123"
+
 auth = Blueprint('auth', __name__)
+
+def token_required(func):
+    # decorator factory which invoks update_wrapper() method and passes decorated function as an argument
+    @wraps(func)
+    def decorated(*args, **kwargs):
+        token = request.args.get('token')
+        if not token:
+            return jsonify({'Alert!': 'Token is missing!'}), 401
+        try:
+
+            data = jwt.decode(token, secret_key)
+        except:
+            return jsonify({'Message': 'Invalid token'}), 403
+        return func(*args, **kwargs)
+    return decorated
+
 
 class SignupForm(FlaskForm):
     class Meta:
@@ -13,6 +34,12 @@ class SignupForm(FlaskForm):
     lastname =  StringField(validators=[InputRequired(), Length(min=2, max=20)])
     email = EmailField(validators=[InputRequired()])
     password =  PasswordField(validators=[InputRequired()])
+class LoginForm(FlaskForm):
+    class Meta:
+        csrf = False
+    email = EmailField(validators=[InputRequired()])
+    password =  PasswordField(validators=[InputRequired()])
+
 
 @auth.route('/signup', methods=["Post"])
 def signup():
@@ -28,9 +55,23 @@ def signup():
         return user.to_json()
     return signup_form.errors
 
-@auth.route('/login')
+@auth.route('/login', methods=['POST'])
 def login():
-    return "<p>login</p>"
+    login_form = LoginForm()
+    if login_form.validate():
+        email = login_form.email.data
+        password = login_form.password.data
+
+        if email == 'ala@ala.com' and password == '123':
+            session['logged_in'] = True
+            token = jwt.encode({
+                'user': email,
+                'expiration': str(datetime.utcnow()+ timedelta(seconds=120))
+            }, secret_key)
+
+            return jsonify({'token' : token.decode('utf-8')})
+        else:
+            return make_response('Unable to find user', 403)
 
 @auth.route('/logout')
 def logout():
