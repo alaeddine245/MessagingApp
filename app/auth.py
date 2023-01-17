@@ -6,9 +6,12 @@ from .models import User
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, EmailField, IntegerField
 from wtforms.validators import InputRequired, Length
-secret_key = "123"
+from dotenv import load_dotenv
+import os 
 
+load_dotenv()
 auth = Blueprint('auth', __name__)
+secret_key = os.environ.get('APP_SECRET')
 
 def token_required(func):
     # decorator factory which invoks update_wrapper() method and passes decorated function as an argument
@@ -18,9 +21,9 @@ def token_required(func):
         if not token:
             return jsonify({'Alert!': 'Token is missing!'}), 401
         try:
-
             data = jwt.decode(token, secret_key)
-        except:
+        except Exception as e:
+            print(e)
             return jsonify({'Message': 'Invalid token'}), 403
         return func(*args, **kwargs)
     return decorated
@@ -61,18 +64,13 @@ def login():
     if login_form.validate():
         email = login_form.email.data
         password = login_form.password.data
-
+        print(secret_key)
         if email == 'ala@ala.com' and password == '123':
-            session['logged_in'] = True
             token = jwt.encode({
                 'user': email,
                 'expiration': str(datetime.utcnow()+ timedelta(seconds=120))
-            }, secret_key)
-
+            }, secret_key, algorithm='HS256')
+        
             return jsonify({'token' : token.decode('utf-8')})
         else:
             return make_response('Unable to find user', 403)
-
-@auth.route('/logout')
-def logout():
-    return "<p>logout</p>"
