@@ -8,10 +8,15 @@ from wtforms import StringField, PasswordField, EmailField, IntegerField
 from wtforms.validators import InputRequired, Length
 from dotenv import load_dotenv
 import os 
+import pymongo
+import bcrypt
 
 load_dotenv()
 auth = Blueprint('auth', __name__)
 secret_key = os.environ.get('APP_SECRET')
+client = pymongo.MongoClient('localhost', 27017)
+db = client.messaging_app
+
 
 def token_required(func):
     # decorator factory which invoks update_wrapper() method and passes decorated function as an argument
@@ -53,9 +58,11 @@ def signup():
         firstname =  signup_form.firstname.data
         lastname =  signup_form.lastname.data
         email = signup_form.email.data
-        password =  signup_form.password.data
+        password =  bcrypt.hashpw(signup_form.password.data.encode(),bcrypt.gensalt()).hex()
         user  = User(card_id, firstname, lastname, email, password)
-        return user.to_json()
+        user_dict = user.__dict__
+        db['user'].insert_one(user_dict)
+        return user_dict
     return signup_form.errors
 
 @auth.route('/login', methods=['POST'])
@@ -64,8 +71,12 @@ def login():
     if login_form.validate():
         email = login_form.email.data
         password = login_form.password.data
-        print(secret_key)
-        if email == 'ala@ala.com' and password == '123':
+        user = db['user'].find_one({'email': email})
+        
+        if not user:
+            return make_response('Wrong email or password', 403)
+
+        if bcrypt.checkpw(password.encode(), user['password']):
             token = jwt.encode({
                 'user': email,
                 'expiration': str(datetime.utcnow()+ timedelta(seconds=120))
@@ -73,4 +84,4 @@ def login():
         
             return jsonify({'token' : token.decode('utf-8')})
         else:
-            return make_response('Unable to find user', 403)
+            return make_response('Wrong email or password', 403)

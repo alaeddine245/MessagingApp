@@ -2,7 +2,7 @@ from flask import jsonify, request
 import json
 class User:
     def __init__(self, card_id, firstname, lastname,email, password):
-        self.card_id = card_id
+        self._id = card_id
         self.firstname = firstname
         self.lastname = lastname
         self.email = email
