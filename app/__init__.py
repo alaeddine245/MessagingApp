@@ -13,6 +13,6 @@ def create_app():
     app.config['SECRET_KEY'] = os.environ.get("APP_SECRET")
 
     CORS(app,resources={r"/*":{"origins":"*"}})
-    #app.register_blueprint(views, url_prefix='/')
-    #app.register_blueprint(auth, url_prefix='/')
+    app.register_blueprint(views, url_prefix='/')
+    app.register_blueprint(auth, url_prefix='/')
     return app
