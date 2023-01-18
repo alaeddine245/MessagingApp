@@ -26,6 +26,6 @@ def token_required(func):
 views = Blueprint('views', __name__)
 
 @views.route('/home', )
-@token_required
+# @token_required
 def home():
     return "<h1>Test</h1>"
