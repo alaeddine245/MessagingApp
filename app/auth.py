@@ -14,12 +14,11 @@ import bcrypt
 load_dotenv()
 auth = Blueprint('auth', __name__)
 secret_key = os.environ.get('APP_SECRET')
-client = pymongo.MongoClient('localhost', 27017)
+client = pymongo.MongoClient(os.environ.get('DB_HOST'), int(os.environ.get('DB_PORT')))
 db = client.messaging_app
 
 
 def token_required(func):
-    # decorator factory which invoks update_wrapper() method and passes decorated function as an argument
     @wraps(func)
     def decorated(*args, **kwargs):
         token = request.args.get('token')
@@ -75,8 +74,8 @@ def login():
         
         if not user:
             return make_response('Wrong email or password', 403)
-
-        if bcrypt.checkpw(password.encode(), user['password']):
+        print(user['password'])
+        if bcrypt.checkpw(password.encode(), bytes.fromhex(user['password'])):
             token = jwt.encode({
                 'user': email,
                 'expiration': str(datetime.utcnow()+ timedelta(seconds=120))

@@ -1,4 +1,3 @@
-from flask import Blueprint
 from flask import Blueprint , request, jsonify, session, make_response
 import jwt
 from functools import wraps
@@ -9,7 +8,6 @@ secret_key = os.environ.get('APP_SECRET')
 
 
 def token_required(func):
-    # decorator factory which invoks update_wrapper() method and passes decorated function as an argument
     @wraps(func)
     def decorated(*args, **kwargs):
         token = request.args.get('token')
