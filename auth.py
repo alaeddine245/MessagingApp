@@ -1,4 +1,4 @@
-from flask import Blueprint , request, jsonify, session, make_response
+from flask import Blueprint, request, jsonify, session, make_response
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
@@ -7,14 +7,15 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, EmailField, IntegerField
 from wtforms.validators import InputRequired, Length
 from dotenv import load_dotenv
-import os 
+import os
 import pymongo
 import bcrypt
 
 load_dotenv()
 auth = Blueprint('auth', __name__)
 secret_key = os.environ.get('APP_SECRET')
-client = pymongo.MongoClient(os.environ.get('DB_HOST'), int(os.environ.get('DB_PORT')))
+client = pymongo.MongoClient(os.environ.get(
+    'DB_HOST'), int(os.environ.get('DB_PORT')))
 db = client.messaging_app
 
 
@@ -37,15 +38,18 @@ class SignupForm(FlaskForm):
     class Meta:
         csrf = False
     card_id = IntegerField(validators=[InputRequired()])
-    firstname =  StringField(validators=[InputRequired(), Length(min=2, max=20)])
-    lastname =  StringField(validators=[InputRequired(), Length(min=2, max=20)])
+    firstname = StringField(
+        validators=[InputRequired(), Length(min=2, max=20)])
+    lastname = StringField(validators=[InputRequired(), Length(min=2, max=20)])
     email = EmailField(validators=[InputRequired()])
-    password =  PasswordField(validators=[InputRequired()])
+    password = PasswordField(validators=[InputRequired()])
+
+
 class LoginForm(FlaskForm):
     class Meta:
         csrf = False
     email = EmailField(validators=[InputRequired()])
-    password =  PasswordField(validators=[InputRequired()])
+    password = PasswordField(validators=[InputRequired()])
 
 
 @auth.route('/signup', methods=["Post"])
@@ -53,16 +57,18 @@ def signup():
     signup_form = SignupForm()
 
     if signup_form.validate():
-        card_id =  signup_form.card_id.data
-        firstname =  signup_form.firstname.data
-        lastname =  signup_form.lastname.data
+        card_id = signup_form.card_id.data
+        firstname = signup_form.firstname.data
+        lastname = signup_form.lastname.data
         email = signup_form.email.data
-        password =  bcrypt.hashpw(signup_form.password.data.encode(),bcrypt.gensalt()).hex()
-        user  = User(card_id, firstname, lastname, email, password)
+        password = bcrypt.hashpw(
+            signup_form.password.data.encode(), bcrypt.gensalt()).hex()
+        user = User(card_id, firstname, lastname, email, password)
         user_dict = user.__dict__
         db['user'].insert_one(user_dict)
         return user_dict
     return signup_form.errors
+
 
 @auth.route('/login', methods=['POST'])
 def login():
@@ -71,16 +77,15 @@ def login():
         email = login_form.email.data
         password = login_form.password.data
         user = db['user'].find_one({'email': email})
-        
+
         if not user:
             return make_response('Wrong email or password', 403)
-        print(user['password'])
         if bcrypt.checkpw(password.encode(), bytes.fromhex(user['password'])):
             token = jwt.encode({
                 'user': email,
-                'expiration': str(datetime.utcnow()+ timedelta(seconds=120))
+                'expiration': str(datetime.utcnow() + timedelta(seconds=120))
             }, secret_key, algorithm='HS256')
-        
-            return jsonify({'token' : token})
+
+            return jsonify({'token': token})
         else:
             return make_response('Wrong email or password', 403)
