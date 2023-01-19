@@ -2,7 +2,7 @@ from flask import Blueprint , request, jsonify, session, make_response
 import jwt
 from datetime import datetime, timedelta
 from functools import wraps
-from .models import User
+from models import User
 from flask_wtf import FlaskForm
 from wtforms import StringField, PasswordField, EmailField, IntegerField
 from wtforms.validators import InputRequired, Length

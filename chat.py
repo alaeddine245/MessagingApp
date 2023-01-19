@@ -1,6 +1,7 @@
 from flask import Blueprint, request
 from flask_socketio import emit
-from ..app import socketio
+import sys
+from .__init__ import socketio
 from functools import wraps
 import jwt
 import os
