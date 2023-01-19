@@ -20,34 +20,15 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 app.register_blueprint(views, url_prefix='/')
 app.register_blueprint(auth, url_prefix='/')
 clients = {}
-
-
-def check_login(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        token = request.args.get('token')
-        if not token:
-            disconnected(request.sid)
-        try:
-            data = jwt.decode(token, os.environ.get('APP_SECRET'))
-        except Exception as e:
-            disconnected(request.sid)
-        return f(*args, **kwargs)
-    return decorated_function
-
-# @check_login
-
-
+pubkeys = {}
 @socketio.on("connect")
 def connected(auth):
-    print(auth)
     print("client has connected")
     user = jwt.decode(auth['token'], os.environ.get(
         'APP_SECRET'), algorithms=['HS256'])['user']
     clients[user] = request.sid
+    pubkeys[user] = auth['pubkey']
     emit("connect", {"data": f"id: {user} is connected"})
-
-# @check_login
 
 
 @socketio.on('data')
@@ -62,7 +43,6 @@ def handle_message(data):
          'id': request.sid}, to=clients[data['user']])
 
 
-# @check_login
 @ socketio.on("disconnect")
 def disconnected():
     print("user disconnected")
@@ -71,6 +51,13 @@ def disconnected():
     clients.pop(user)
     emit("disconnect", f"user {user} disconnected", broadcast=True)
 
+
+@app.route('/pubkey', methods=['POST'])
+def getpubkey():
+    if request.json["user"] in pubkeys:
+        return pubkeys[request.json["user"]]
+    else:
+        return "public key not found",404
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, port=5001)
