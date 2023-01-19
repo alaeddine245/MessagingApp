@@ -21,13 +21,16 @@ app.register_blueprint(views, url_prefix='/')
 app.register_blueprint(auth, url_prefix='/')
 clients = {}
 pubkeys = {}
+
+
 @socketio.on("connect")
 def connected(auth):
     print("client has connected")
-    user = jwt.decode(auth['token'], os.environ.get(
+    user = jwt.decode(str(auth['token']), os.environ.get(
         'APP_SECRET'), algorithms=['HS256'])['user']
     clients[user] = request.sid
     pubkeys[user] = auth['pubkey']
+    print(auth['pubkey'])
     emit("connect", {"data": f"id: {user} is connected"})
 
 
@@ -46,10 +49,9 @@ def handle_message(data):
 @ socketio.on("disconnect")
 def disconnected():
     print("user disconnected")
-    user = jwt.decode(request.args.get("token"),
-                      os.environ.get('APP_SECRET'))['user']
-    clients.pop(user)
-    emit("disconnect", f"user {user} disconnected", broadcast=True)
+    clients.pop(list(clients.keys())[
+                list(clients.values()).index(request.sid)])
+    emit("disconnect", f"user disconnected", broadcast=True)
 
 
 @app.route('/pubkey', methods=['POST'])
@@ -57,7 +59,8 @@ def getpubkey():
     if request.json["user"] in pubkeys:
         return pubkeys[request.json["user"]]
     else:
-        return "public key not found",404
+        return "public key not found", 404
+
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, port=5001)
