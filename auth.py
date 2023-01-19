@@ -25,7 +25,7 @@ def token_required(func):
         if not token:
             return jsonify({'Alert!': 'Token is missing!'}), 401
         try:
-            data = jwt.decode(token, secret_key)
+            data = jwt.decode(token, secret_key, algorithms=['HS256'])
         except Exception as e:
             print(e)
             return jsonify({'Message': 'Invalid token'}), 403
@@ -81,6 +81,6 @@ def login():
                 'expiration': str(datetime.utcnow()+ timedelta(seconds=120))
             }, secret_key, algorithm='HS256')
         
-            return jsonify({'token' : token.decode('utf-8')})
+            return jsonify({'token' : token})
         else:
             return make_response('Wrong email or password', 403)
