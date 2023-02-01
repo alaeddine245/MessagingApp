@@ -1,11 +1,11 @@
 from flask import jsonify, request
 import json
 class User:
-    def __init__(self, card_id, firstname, lastname,email, password):
+    def __init__(self, card_id, firstname, lastname,username, password):
         self._id = card_id
         self.firstname = firstname
         self.lastname = lastname
-        self.email = email
+        self.username = username
         self.password = password
     
     def to_json(self):

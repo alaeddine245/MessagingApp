@@ -8,16 +8,15 @@ from wtforms import StringField, PasswordField, EmailField, IntegerField
 from wtforms.validators import InputRequired, Length
 from dotenv import load_dotenv
 import os
-import pymongo
-import bcrypt
+import ldap
+from ldap import modlist
+
+ldap_connection = ldap.initialize("ldap://localhost")
+ldap_connection.bind_s("cn=admin,dc=messaging,dc=com", "12345")
 
 load_dotenv()
 auth = Blueprint('auth', __name__)
 secret_key = os.environ.get('APP_SECRET')
-client = pymongo.MongoClient(os.environ.get(
-    'DB_HOST'), int(os.environ.get('DB_PORT')))
-db = client.messaging_app
-
 
 def token_required(func):
     @wraps(func)
@@ -41,14 +40,14 @@ class SignupForm(FlaskForm):
     firstname = StringField(
         validators=[InputRequired(), Length(min=2, max=20)])
     lastname = StringField(validators=[InputRequired(), Length(min=2, max=20)])
-    email = EmailField(validators=[InputRequired()])
+    username = EmailField(validators=[InputRequired()])
     password = PasswordField(validators=[InputRequired()])
 
 
 class LoginForm(FlaskForm):
     class Meta:
         csrf = False
-    email = EmailField(validators=[InputRequired()])
+    username = EmailField(validators=[InputRequired()])
     password = PasswordField(validators=[InputRequired()])
 
 
@@ -60,12 +59,25 @@ def signup():
         card_id = signup_form.card_id.data
         firstname = signup_form.firstname.data
         lastname = signup_form.lastname.data
-        email = signup_form.email.data
-        password = bcrypt.hashpw(
-            signup_form.password.data.encode(), bcrypt.gensalt()).hex()
-        user = User(card_id, firstname, lastname, email, password)
+        username = signup_form.username.data
+        password = signup_form.password.data
+        user = User(card_id, firstname, lastname, username, password)
         user_dict = user.__dict__
-        db['user'].insert_one(user_dict)
+        dn = f"cn={username},dc=messaging,dc=com"
+        attrs = {
+            'objectclass': [b'person', b'top'],
+            'cn': bytes(username, 'utf-8'),
+            'sn': bytes(username, 'utf-8'),
+            'userPassword': bytes(password, 'utf-8')
+        }
+        ldif = modlist.addModlist(attrs)
+        try:
+            ldap_connection.add_s(dn, ldif)
+        except ldap.ALREADY_EXISTS:
+            return make_response('Account already exists', 403)
+        except ldap.LDAPError:
+            return make_response('Sign up failed', 403)
+
         return user_dict
     return signup_form.errors
 
@@ -74,18 +86,18 @@ def signup():
 def login():
     login_form = LoginForm()
     if login_form.validate():
-        email = login_form.email.data
+        username = login_form.username.data
         password = login_form.password.data
-        user = db['user'].find_one({'email': email})
-
-        if not user:
+        #user = db['user'].find_one({'email': email})
+        try:
+            cn = f"cn={username}, dc=messaging,dc=com"
+            ldap_connection.simple_bind_s(cn, password)
+        except (ldap.INVALID_CREDENTIALS, ldap.UNWILLING_TO_PERFORM):
+            print('INVALID CREDENTIALS USER')
             return make_response('Wrong email or password', 403)
-        if bcrypt.checkpw(password.encode(), bytes.fromhex(user['password'])):
-            token = jwt.encode({
-                'user': email,
+        token = jwt.encode({
+                'user': username,
                 'expiration': str(datetime.utcnow() + timedelta(seconds=120))
-            }, secret_key, algorithm='HS256')
-
-            return jsonify({'token': token})
-        else:
-            return make_response('Wrong email or password', 403)
+        }, secret_key, algorithm='HS256')
+        return jsonify({'token': token.decode(encoding='UTF-8')})
+    return make_response('Form not valid', 403)

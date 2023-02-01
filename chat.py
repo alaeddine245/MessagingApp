@@ -23,7 +23,6 @@ def check_login(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# @check_login
 @socketio.on("connect")
 def connected():
     print(request)
@@ -32,18 +31,14 @@ def connected():
     clients[user] = request.sid
     emit("connect",{"data":f"id: {user} is connected"})
 
-# @check_login
 @socketio.on('data')
 def handle_message(data):
     print("data from the front end: ",str(data))
-
     user = jwt.decode(request.args.get("token"), os.environ.get('APP_SECRET'))['user']
-
     emit("data",{'data':data,'id':request.sid, 'from': user}, to=clients[request.args.get("to")])
 
 
 
-# @check_login
 @socketio.on("disconnect")
 def disconnected():
     print("user disconnected")
